@@ -9,6 +9,7 @@ import pandas as pd
 import cv2 
 import matplotlib.pyplot as plt
 import numpy as np
+import scikitplot as skplt
 
 from sklearn import metrics
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -17,7 +18,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from numpy.linalg import inv
+from sklearn.metrics import classification_report
 
 #Function to resize image
 def resizeImage(image):
@@ -289,7 +290,8 @@ def standardize(NN, dataSet, fileSuffix):
     X1 = np.array(X)
 
     # Standardize the features.
-    x_std = StandardScaler().fit_transform(X1)
+    scaler = StandardScaler()
+    x_std = scaler.fit_transform(X1)
 
     # Combine standardized feature space with labels to save as file.
     completeMatrix = np.column_stack([x_std, labels])
@@ -818,7 +820,7 @@ plt.scatter(CSR_X1_20[:, c], CSR_X1_20[:, d], s=2, c=CSR_Y1_20)
 plt.xlabel('Feature %i' % c)
 plt.ylabel('Feature %i' % d)
 plt.show()
-
+'''
 ######################################### CARDINAL AND SPARROW LASSO REGRESSION
 # Training with 80% data.
 CS_X1_train = CS_X1_80
@@ -1243,8 +1245,8 @@ print()
 # Classification report from sklearn library
 #print(metrics.classification_report(CSR_y_test, CSR_RF_yhat_test))
 
-###############################################################################
-'''
+################################################## PRINCIPAL COMPONENT ANALYSIS
+
 # Open the saved merged feature space files.
 cardinalSparrowMerged = pd.read_csv("C:/Users/rober/OneDrive/Desktop\Spring Semester 2024/CSC 410 Big Data and Machine Learning/Assignment 3/Data/image01-1.csv", header=None)
 cardinalRobinMerged = pd.read_csv("C:/Users/rober/OneDrive/Desktop\Spring Semester 2024/CSC 410 Big Data and Machine Learning/Assignment 3/Data/image01-2.csv", header=None)
@@ -1257,19 +1259,465 @@ cardinalRobinMergedStd = standardize(256, cardinalRobinMerged, '2')
 sparrowRobinMergedStd = standardize(256, sparrowRobinMerged, '3')
 cardinalSparrowRobinMergedStd = standardize(256, cardinalSparrowRobinMerged, '4')
 
-
 # Call to function that splits datasets 80% train and 20% test.
 CS_X1_80_std, CS_Y1_80_std, CS_X1_20_std, CS_Y1_20_std = split8020dataset(256, cardinalSparrowMergedStd, 'CS_X_std', 'CS_Y_std')
 CR_X1_80_std, CR_Y1_80_std, CR_X1_20_std, CR_Y1_20_std = split8020dataset(256, cardinalRobinMergedStd, 'CR_X_std', 'CR_Y_std')
 SR_X1_80_std, SR_Y1_80_std, SR_X1_20_std, SR_Y1_20_std = split8020dataset(256, sparrowRobinMergedStd, 'SR_X_std', 'SR_Y_std')
 CSR_X1_80_std, CSR_Y1_80_std, CSR_X1_20_std, CSR_Y1_20_std = split8020dataset(256, cardinalSparrowRobinMergedStd, 'CSR_X_std', 'CSR_Y_std')
 
+#Call to function that splits datasets 80% train and 20% test for testing un-standardized dataset for testing 
+# CS_X1_80_std, CS_Y1_80_std, CS_X1_20_std, CS_Y1_20_std = split8020dataset(256, cardinalSparrowMerged, 'CS_X', 'CS_Y')
+# CR_X1_80_std, CR_Y1_80_std, CR_X1_20_std, CR_Y1_20_std = split8020dataset(256, cardinalRobinMerged, 'CR_X', 'CR_Y')
+# SR_X1_80_std, SR_Y1_80_std, SR_X1_20_std, SR_Y1_20_std = split8020dataset(256, sparrowRobinMerged, 'SR_X', 'SR_Y')
+# CSR_X1_80_std, CSR_Y1_80_std, CSR_X1_20_std, CSR_Y1_20_std = split8020dataset(256, cardinalSparrowRobinMerged, 'CSR_X', 'CSR_Y')
 
 
+seed = 1
+np.random.seed(seed)
+
+cmp = 25
+
+###################################################### CARDINAL AND SPARROW PCA
+# Training with 80% data.
+pca1 = PCA(n_components=cmp)
+CS_X1_80_std = pca1.fit_transform(CS_X1_80_std)
+
+# Using previous models for comparsion
+lr_model1 = lr1.fit(CS_X1_80_std, CS_Y1_80_std)
+rf_model1 = rf1.fit(CS_X1_80_std, CS_Y1_80_std)
+
+# Testing with 20% data.
+pca1 = PCA(n_components=cmp)
+CS_X1_20_std = pca1.fit_transform(CS_X1_20_std)
 
 
+# Using PCA to test lasso regression and random forest models on same dataset.
+CS_LR_yhat_test_with_PCA = lr1.predict(CS_X1_20_std)
+CS_LR_yhat_test_with_PCA = np.where(CS_LR_yhat_test_with_PCA > 0.5, 1, 0)
+CS_RF_yhat_test_with_PCA = rf1.predict(CS_X1_20_std)
 
+#Save the actual and predicted values.
+saveActualAndPredictedTest(CS_Y1_20_std, CS_LR_yhat_test_with_PCA, 'CS_lasso_PCA')
+saveActualAndPredictedTest(CS_Y1_20_std, CS_RF_yhat_test_with_PCA, 'CS_rand_forest_PCA')
 
+# Confusion matrix analytics
+CC9_test = confusion_matrix(CS_Y1_20_std, CS_LR_yhat_test_with_PCA)
+saveConfusionMatrix(CC9_test, 'CS_lasso_PCA')
+ConfusionMatrixDisplay(CC9_test).plot()
+CC10_test = confusion_matrix(CS_Y1_20_std, CS_RF_yhat_test_with_PCA)
+saveConfusionMatrix(CC10_test, 'CS_rand_forest_PCA')
+ConfusionMatrixDisplay(CC10_test).plot()
+
+#TN = CC_test[0,0]
+#FP = CC_test[0,1]
+#FN = CC_test[1,0]
+#TP = CC_test[1,1]
+
+TN = CC9_test[1,1]
+FP = CC9_test[1,0]
+FN = CC9_test[0,1]
+TP = CC9_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and lasso regression model using cardinal/sparrow dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(CS_Y1_20_std, CS_LR_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(CS_Y1_20_std, CS_LR_yhat_test_with_PCA))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(CS_Y1_20_std, CS_LR_yhat_test_with_PCA))
+print("\n")
+print(classification_report(CS_Y1_20_std, CS_LR_yhat_test_with_PCA))
+
+TN = CC10_test[1,1]
+FP = CC10_test[1,0]
+FN = CC10_test[0,1]
+TP = CC10_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and random forest model using cardinal/sparrow dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(CS_Y1_20_std, CS_RF_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(CS_Y1_20_std, CS_RF_yhat_test_with_PCA))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(CS_Y1_20_std, CS_RF_yhat_test_with_PCA))
+print("\n")
+print(classification_report(CS_Y1_20_std, CS_RF_yhat_test_with_PCA))
+
+CS_RF_yhat_test_with_PCA = rf_model1.predict_proba(CS_X1_20_std)
+skplt.metrics.plot_roc(CS_Y1_20_std, CS_RF_yhat_test_with_PCA)
+plt.title("ROC Curves - RF Classifier")
+plt.show()
+
+# Scatterplot of first two principal components
+plt.scatter(CS_X1_80_std[:,0], CS_X1_80_std[:,1], c=CS_Y1_80_std)
+plt.title('Principal component analysis: cardinal and sparrow dataset')
+plt.xlabel('First principal component')
+plt.ylabel('Second principal component')
+plt.show()
+
+plt.plot(np.cumsum(pca1.explained_variance_ratio_))
+plt.title('Cardinal/sparrow PCA Variance Ratio')
+plt.xlabel('Number of components')
+plt.ylabel('Cumulative explained variance')
+plt.show()
+
+######################################################## CARDINAL AND ROBIN PCA
+# Training with 80% data.
+pca2 = PCA(n_components=cmp)
+CR_X1_80_std = pca2.fit_transform(CR_X1_80_std)
+
+# Using previous models for comparsion
+lr_model2 = lr2.fit(CR_X1_80_std, CR_Y1_80_std)
+rf_model2 = rf2.fit(CR_X1_80_std, CR_Y1_80_std)
+
+# Testing with 20% data.
+pca2 = PCA(n_components=cmp)
+CR_X1_20_std = pca2.fit_transform(CR_X1_20_std)
+
+# Using PCA to test lasso regression and random forest models on same dataset.
+CR_LR_yhat_test_with_PCA = lr2.predict(CR_X1_20_std)
+CR_LR_yhat_test_with_PCA = np.where(CR_LR_yhat_test_with_PCA > 1, 2, 0)
+CR_RF_yhat_test_with_PCA = rf2.predict(CR_X1_20_std)
+
+#Save the actual and predicted values.
+saveActualAndPredictedTest(CR_Y1_20_std, CR_LR_yhat_test_with_PCA, 'CR_lasso_PCA')
+saveActualAndPredictedTest(CR_Y1_20_std, CR_RF_yhat_test_with_PCA, 'CR_rand_forest_PCA')
+
+# Confusion matrix analytics
+CC11_test = confusion_matrix(CR_Y1_20_std, CR_LR_yhat_test_with_PCA)
+saveConfusionMatrix(CC11_test, 'CR_lasso_PCA')
+ConfusionMatrixDisplay(CC11_test).plot()
+CC12_test = confusion_matrix(CR_Y1_20_std, CR_RF_yhat_test_with_PCA)
+saveConfusionMatrix(CC12_test, 'CR_rand_forest_PCA')
+ConfusionMatrixDisplay(CC12_test).plot()
+
+#TN = CC_test[0,0]
+#FP = CC_test[0,1]
+#FN = CC_test[1,0]
+#TP = CC_test[1,1]
+
+TN = CC11_test[1,1]
+FP = CC11_test[1,0]
+FN = CC11_test[0,1]
+TP = CC11_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and lasso regression model using cardinal/robin dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(CR_Y1_20_std, CR_LR_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(CR_Y1_20_std, CR_LR_yhat_test_with_PCA, pos_label=2))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(CR_Y1_20_std, CR_LR_yhat_test_with_PCA, pos_label=2))
+print("\n")
+print(classification_report(CR_Y1_20_std, CR_LR_yhat_test_with_PCA))
+
+#TN = CC_test[0,0]
+#FP = CC_test[0,1]
+#FN = CC_test[1,0]
+#TP = CC_test[1,1]
+
+TN = CC12_test[1,1]
+FP = CC12_test[1,0]
+FN = CC12_test[0,1]
+TP = CC12_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and random forest model using cardinal/robin dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(CR_Y1_20_std, CR_RF_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(CR_Y1_20_std, CR_RF_yhat_test_with_PCA, pos_label=2))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(CR_Y1_20_std, CR_RF_yhat_test_with_PCA, pos_label=2))
+print("\n")
+print(classification_report(CR_Y1_20_std, CR_RF_yhat_test_with_PCA))
+
+CR_RF_yhat_test_with_PCA = rf_model2.predict_proba(CR_X1_20_std)
+plot = skplt.metrics.plot_roc(CR_Y1_20_std, CR_RF_yhat_test_with_PCA)
+plt.title("ROC Curves - RF Classifier")
+plt.show()
+
+# Scatterplot of first two principal components
+plt.scatter(CR_X1_80_std[:,0], CR_X1_80_std[:,1], c=CR_Y1_80_std)
+plt.title('Principal component analysis: cardinal and robin dataset')
+plt.xlabel('First principal component')
+plt.ylabel('Second principal component')
+plt.show()
+
+plt.plot(np.cumsum(pca2.explained_variance_ratio_))
+plt.title('Cardinal/robin PCA Variance Ratio')
+plt.xlabel('Number of components')
+plt.ylabel('Cumulative explained variance')
+plt.show()
+
+######################################################### SPARROW AND ROBIN PCA
+# Training with 80% data.
+pca3 = PCA(n_components=cmp)
+SR_X1_80_std = pca3.fit_transform(SR_X1_80_std)
+
+# Using previous models for comparsion
+lr_model3 = lr3.fit(SR_X1_80_std, SR_Y1_80_std)
+rf_model3 = rf3.fit(SR_X1_80_std, SR_Y1_80_std)
+
+# Testing with 20% data.
+pca3 = PCA(n_components=cmp)
+SR_X1_20_std = pca3.fit_transform(SR_X1_20_std)
+
+# Using PCA to test lasso regression and random forest models on same dataset.
+SR_LR_yhat_test_with_PCA = lr3.predict(SR_X1_20_std)
+SR_LR_yhat_test_with_PCA = np.where(SR_LR_yhat_test_with_PCA > 1.5, 2, 1)
+SR_RF_yhat_test_with_PCA = rf3.predict(SR_X1_20_std)
+
+#Save the actual and predicted values.
+saveActualAndPredictedTest(SR_Y1_20_std, SR_LR_yhat_test_with_PCA, 'SR_lasso_PCA')
+saveActualAndPredictedTest(SR_Y1_20_std, SR_RF_yhat_test_with_PCA, 'SR_rand_forest_PCA')
+
+# Confusion matrix analytics
+CC13_test = confusion_matrix(SR_Y1_20_std, SR_LR_yhat_test_with_PCA)
+saveConfusionMatrix(CC13_test, 'SR_lasso_PCA')
+ConfusionMatrixDisplay(CC13_test).plot()
+CC14_test = confusion_matrix(SR_Y1_20_std, SR_RF_yhat_test_with_PCA)
+saveConfusionMatrix(CC14_test, 'SR_rand_forest_PCA')
+ConfusionMatrixDisplay(CC14_test).plot()
+
+#TN = CC_test[0,0]
+#FP = CC_test[0,1]
+#FN = CC_test[1,0]
+#TP = CC_test[1,1]
+
+TN = CC13_test[1,1]
+FP = CC13_test[1,0]
+FN = CC13_test[0,1]
+TP = CC13_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and lasso regression model using sparrow/robin dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(SR_Y1_20_std, SR_LR_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(SR_Y1_20_std, SR_LR_yhat_test_with_PCA))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(SR_Y1_20_std, SR_LR_yhat_test_with_PCA))
+print("\n")
+print(classification_report(SR_Y1_20_std, SR_LR_yhat_test_with_PCA))
+
+TN = CC14_test[1,1]
+FP = CC14_test[1,0]
+FN = CC14_test[0,1]
+TP = CC14_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and random forest model using sparrow/robin dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(SR_Y1_20_std, SR_RF_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(SR_Y1_20_std, SR_RF_yhat_test_with_PCA))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(SR_Y1_20_std, SR_RF_yhat_test_with_PCA))
+print("\n")
+print(classification_report(SR_Y1_20_std, SR_RF_yhat_test_with_PCA))
+
+SR_RF_yhat_test_with_PCA = rf_model3.predict_proba(SR_X1_20_std)
+plot = skplt.metrics.plot_roc(SR_Y1_20_std, SR_RF_yhat_test_with_PCA)
+plt.title("ROC Curves - RF Classifier")
+plt.show()
+
+# Scatterplot of first two principal components
+plt.scatter(SR_X1_80_std[:,0], SR_X1_80_std[:,1], c=SR_Y1_80_std)
+plt.title('Principal component analysis: sparrow and robin dataset')
+plt.xlabel('First principal component')
+plt.ylabel('Second principal component')
+plt.show()
+
+plt.plot(np.cumsum(pca3.explained_variance_ratio_))
+plt.title('Sparrow/Robin PCA Variance Ratio')
+plt.xlabel('Number of components')
+plt.ylabel('Cumulative explained variance')
+plt.show()
+
+############################################## CARDINAL, SPARROW, AND ROBIN PCA
+# Training with 80% data.
+pca4 = PCA(n_components=cmp)
+CSR_X1_80_std = pca4.fit_transform(CSR_X1_80_std)
+
+# Using previous models for comparsion
+lr_model4 = lr4.fit(CSR_X1_80_std, CSR_Y1_80_std)
+rf_model4 = rf4.fit(CSR_X1_80_std, CSR_Y1_80_std)
+
+# Testing with 20% data.
+pca4 = PCA(n_components=cmp)
+CSR_X1_20_std = pca4.fit_transform(CSR_X1_20_std)
+
+# Using PCA to test lasso regression and random forest models on same dataset.
+CSR_LR_yhat_test_with_PCA = lr4.predict(CSR_X1_20_std)
+CSR_LR_yhat_test_with_PCA = np.where((CSR_LR_yhat_test_with_PCA > 0.5) & (CSR_LR_yhat_test_with_PCA < 1.5), 1, (np.where(CSR_LR_yhat_test_with_PCA > 1.5, 2, 0)))
+CSR_RF_yhat_test_with_PCA = rf4.predict(CSR_X1_20_std)
+
+#Save the actual and predicted values.
+saveActualAndPredictedTest(CSR_Y1_20_std, CSR_LR_yhat_test_with_PCA, 'CSR_lasso_PCA')
+saveActualAndPredictedTest(CSR_Y1_20_std, CSR_RF_yhat_test_with_PCA, 'CSR_rand_forest_PCA')
+
+# Confusion matrix analytics
+CC15_test = confusion_matrix(CSR_Y1_20_std, CSR_LR_yhat_test_with_PCA)
+saveConfusionMatrix(CC15_test, 'CSR_lasso_PCA')
+ConfusionMatrixDisplay(CC15_test).plot()
+CC16_test = confusion_matrix(CSR_Y1_20_std, CSR_RF_yhat_test_with_PCA)
+saveConfusionMatrix(CC16_test, 'CSR_rand_forest_PCA')
+ConfusionMatrixDisplay(CC16_test).plot()
+
+#TN = CC_test[0,0]
+#FP = CC_test[0,1]
+#FN = CC_test[1,0]
+#TP = CC_test[1,1]
+
+TN = CC15_test[1,1] + CC15_test[1,2] + CC15_test[2,1] + CC15_test[2,2]
+FP = CC15_test[1,0] + CC15_test[2,0]
+FN = CC15_test[0,1] + CC15_test[0,2]
+TP = CC15_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and lasso regression model using cardinal/sparrow/robin dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(CSR_Y1_20_std, CSR_LR_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(CSR_Y1_20_std, CSR_LR_yhat_test_with_PCA, average='macro'))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(CSR_Y1_20_std, CSR_LR_yhat_test_with_PCA, average='macro'))
+print("\n")
+print(classification_report(CSR_Y1_20_std, CSR_LR_yhat_test_with_PCA))
+
+TN = CC16_test[1,1] + CC16_test[1,2] + CC16_test[2,1] + CC16_test[2,2]
+FP = CC16_test[1,0] + CC16_test[2,0]
+FN = CC16_test[0,1] + CC16_test[0,2]
+TP = CC16_test[0,0]
+
+FPFN = FP+FN
+TPTN = TP+TN
+
+print("PCA and random forest model using cardinal/sparrow/robin dataset")
+
+Accuracy = 1/(1+(FPFN/TPTN))
+print("Our_Accuracy_Score:",Accuracy)
+
+Precision = 1/(1+(FP/TP))
+print("Our_Precision_Score:",Precision)
+
+Sensitivity = 1/(1+(FN/TP))
+print("Our_Sensitivity_Score:",Sensitivity)
+
+Specificity = 1/(1+(FP/TN))
+print("Our_Specificity_Score:",Specificity)
+
+print("BuiltIn_Accuracy:",metrics.accuracy_score(CSR_Y1_20_std, CSR_RF_yhat_test_with_PCA))
+print("BuiltIn_Precision:",metrics.precision_score(CSR_Y1_20_std, CSR_RF_yhat_test_with_PCA, average='macro'))
+print("BuiltIn_Sensitivity (recall):",metrics.recall_score(CSR_Y1_20_std, CSR_RF_yhat_test_with_PCA, average='macro'))
+print("\n")
+print(classification_report(CSR_Y1_20_std, CSR_RF_yhat_test_with_PCA))
+
+CSR_RF_yhat_test_with_PCA = rf_model4.predict_proba(CSR_X1_20_std)
+plot = skplt.metrics.plot_roc(CSR_Y1_20_std, CSR_RF_yhat_test_with_PCA)
+plt.title("ROC Curves - RF Classifier")
+plt.show()
+
+# Scatterplot of first two principal components
+plt.scatter(CSR_X1_80_std[:,0], CSR_X1_80_std[:,1], c=CSR_Y1_80_std)
+plt.title('Principal component analysis: cardinal, sparrow, and robin dataset')
+plt.xlabel('First principal component')
+plt.ylabel('Second principal component')
+plt.show()
+
+plt.plot(np.cumsum(pca4.explained_variance_ratio_))
+plt.title('Cardinal/sparrow/robin PCA Variance Ratio')
+plt.xlabel('Number of components')
+plt.ylabel('Cumulative explained variance')
+plt.show()
 
 
 
